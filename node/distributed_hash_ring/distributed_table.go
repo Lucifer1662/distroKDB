@@ -2,10 +2,11 @@ package distributed_hash_ring
 
 import (
 	"log"
-	"luke/distrokdb/node/hash_ring"
 	"net"
 	"net/rpc"
 	"strconv"
+
+	"github.com/lucifer1662/distrokdb/node/hash_ring"
 )
 
 type DistributedTable struct {

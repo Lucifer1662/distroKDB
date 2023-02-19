@@ -1,6 +1,6 @@
 package distributed_hash_ring
 
-import "luke/distrokdb/node/hash_ring"
+import "github.com/lucifer1662/distrokdb/node/hash_ring"
 
 type LocalTable struct {
 	table hash_ring.KeyValueTable

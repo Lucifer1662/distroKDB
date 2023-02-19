@@ -1,4 +1,4 @@
-module luke/distrokdb/cluster_mananger
+module github.com/lucifer1662/distrokdb/cluster_mananger
 
 go 1.19
 

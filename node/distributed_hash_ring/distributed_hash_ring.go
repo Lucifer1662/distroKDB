@@ -1,6 +1,6 @@
 package distributed_hash_ring
 
-import "luke/distrokdb/hash_ring"
+import "github.com/lucifer1662/distrokdb/node/hash_ring"
 
 func New(config *InstanceConfig) hash_ring.Hash_Ring {
 	nodes := make([]hash_ring.Node, len(config.Nodes))

@@ -1,7 +1,7 @@
 package distributed_hash_ring
 
 import (
-	"luke/distrokdb/node/hash_ring"
+	"github.com/lucifer1662/distrokdb/node/hash_ring"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

@@ -1,4 +1,4 @@
-module luke/distrokdb/node
+module github.com/lucifer1662/distrokdb/node
 
 go 1.19
 

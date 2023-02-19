@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"luke/distrokdb/node/distributed_hash_ring"
-	"luke/distrokdb/node/http_db_server"
 	"net"
 	"net/rpc"
 	"os"
 	"strconv"
+
+	"github.com/lucifer1662/distrokdb/node/distributed_hash_ring"
+	"github.com/lucifer1662/distrokdb/node/http_db_server"
 )
 
 type Config struct {

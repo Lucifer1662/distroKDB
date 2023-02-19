@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"luke/distrokdb/node/hash_ring"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/lucifer1662/distrokdb/node/hash_ring"
 )
 
 type HttpDBServer struct {

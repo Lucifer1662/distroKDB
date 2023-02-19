@@ -2,8 +2,9 @@ package distributed_hash_ring
 
 import (
 	"encoding/json"
-	"luke/distrokdb/node/hash_ring"
 	"os"
+
+	"github.com/lucifer1662/distrokdb/node/hash_ring"
 )
 
 type Node struct {

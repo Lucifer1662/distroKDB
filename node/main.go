@@ -2,9 +2,10 @@ package main
 
 import (
 	"flag"
-	"luke/distrokdb/node/distributed_hash_ring"
-	"luke/distrokdb/node/http_db_server"
-	"luke/distrokdb/node/manager_server"
+
+	"github.com/lucifer1662/distrokdb/node/distributed_hash_ring"
+	"github.com/lucifer1662/distrokdb/node/http_db_server"
+	"github.com/lucifer1662/distrokdb/node/manager_server"
 )
 
 type DistributedKeyDataBase struct {
