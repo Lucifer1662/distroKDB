@@ -1,0 +1,45 @@
+{
+  "name": "dash_board",
+  "scripts": {
+    "dev": "solid-start dev",
+    "build_old": "solid-start build",
+    "build": "vite build",
+    "start": "solid-start start",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@babel/core": "^7.20.12",
+    "@storybook/addon-essentials": "^7.0.0-beta.48",
+    "@storybook/addon-interactions": "^7.0.0-beta.48",
+    "@storybook/addon-links": "^7.0.0-beta.48",
+    "@storybook/blocks": "^7.0.0-beta.48",
+    "@storybook/html": "^7.0.0-beta.48",
+    "@storybook/html-vite": "^7.0.0-beta.48",
+    "@storybook/testing-library": "^0.0.14-next.1",
+    "@types/node": "^18.11.18",
+    "babel-loader": "^8.3.0",
+    "esbuild": "^0.14.54",
+    "postcss": "^8.4.21",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "solid-start-node": "^0.2.19",
+    "storybook": "^7.0.0-beta.48",
+    "typescript": "^4.9.4",
+    "vite": "^3.2.5",
+    "vite-plugin-solid": "^2.5.0"
+  },
+  "dependencies": {
+    "@solidjs/meta": "^0.28.2",
+    "@solidjs/router": "^0.7.0",
+    "@suid/icons-material": "^0.5.8",
+    "@suid/material": "^0.10.1",
+    "solid-js": "^1.6.11",
+    "solid-start": "^0.2.21",
+    "undici": "^5.15.1"
+  },
+  "engines": {
+    "node": ">=16.8"
+  }
+}

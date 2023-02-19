@@ -1,0 +1,65 @@
+version: '3'
+
+services:
+  node0:
+    container_name: node0
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    environment:
+      - NODE_ID=0
+      - NODE_CONFIG=$NODE_CONFIG
+    ports:
+      - $PORT0:8890
+
+  node1:
+    container_name: node1
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    environment:
+      - NODE_ID=1
+      - NODE_CONFIG=$NODE_CONFIG
+    ports:
+      - $PORT1:8890
+
+  node2:
+    container_name: node2
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    environment:
+      - NODE_ID=2
+      - NODE_CONFIG=$NODE_CONFIG
+    ports:
+      - $PORT2:8890
+
+  node3:
+    container_name: node3
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    environment:
+      - NODE_ID=3
+      - NODE_CONFIG=$NODE_CONFIG
+    ports:
+      - $PORT3:8890
+
+  node4:
+    container_name: node4
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    environment:
+      - NODE_ID=4
+      - NODE_CONFIG=$NODE_CONFIG
+    ports:
+      - $PORT4:8890
+
+  dash_board:
+    build:
+      context: ./dash_board
+      args:
+        - node_config=$NODE_CONFIG #Need to pass env variables at build time
+    ports:
+      - 3000:3000

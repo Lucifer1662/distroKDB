@@ -1,0 +1,25 @@
+{
+    "Hash_ring_config": {
+        "Nodes": [
+            {
+                "Position": 9223372036854775807,
+                "Address": "localhost: 1234",
+                "Id": 0
+            },
+            {
+                "Position": 18446744073709551615,
+                "Address": "localhost: 1235",
+                "Id": 1
+            }
+        ],
+        "Replication_factor": 1,
+        "Minimum_writes": 1,
+        "Minimum_read": 1,
+        "My_id": 0,
+        "My_port": 1234
+    },
+    "Http_config": {
+        "Http_port": 3000,
+        "My_id": 0
+    }
+}
