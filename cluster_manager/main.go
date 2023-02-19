@@ -1,7 +1,8 @@
-package main
+package cluster_manager
 
 import (
 	"context"
+	"net/rpc"
 	"os"
 
 	"github.com/docker/docker/api/types"
@@ -12,6 +13,33 @@ import (
 
 type Config struct {
 	Node_addresses []string
+}
+
+type SetConfig struct {
+	config *manager_server.Config
+}
+
+type SetConfigResponse struct {
+	Success       bool
+	Error_message string
+}
+
+func SetConfigOnNode(config *manager_server.Config) {
+	client, err := rpc.Dial("tcp", t.server_address)
+	if err != nil {
+		return nil, err
+	}
+
+	// Synchronous call
+	args := &SetConfig{config}
+	var reply GetResponse
+
+	//blocks for response
+	err = client.Call("DistributedHashRingServer.Get", args, &reply)
+	if err != nil {
+		return nil, err
+	}
+	return reply.Value, nil
 }
 
 func main() {
