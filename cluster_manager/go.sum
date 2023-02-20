@@ -22,6 +22,8 @@ github.com/lucifer1662/distrokdb v0.0.0-20230219004635-daa13ac83768 h1:GYKihS9D+
 github.com/lucifer1662/distrokdb v0.0.0-20230219004635-daa13ac83768/go.mod h1:pVVYkrKbwepC+5jGDRgOuus0IfzyUhIGGExjqppkvAk=
 github.com/lucifer1662/distrokdb/node v0.0.0-20230219004635-daa13ac83768 h1:/AHZielaVOvbt71M6lwxPgp4fUjk+uirzf9v+q6/jtI=
 github.com/lucifer1662/distrokdb/node v0.0.0-20230219004635-daa13ac83768/go.mod h1:L3af3NbqR1VbUn8CNVFGvdRbFToevY6qZTDzzpAqmA0=
+github.com/lucifer1662/distrokdb/node v0.0.0-20230220054314-7babfb2cee9c h1:NvbvIHJgMHTfg7nIN5pDj3gUV8Gt4qgR96oBDPn41G0=
+github.com/lucifer1662/distrokdb/node v0.0.0-20230220054314-7babfb2cee9c/go.mod h1:L3af3NbqR1VbUn8CNVFGvdRbFToevY6qZTDzzpAqmA0=
 github.com/moby/term v0.0.0-20221205130635-1aeaba878587 h1:HfkjXDfhgVaN5rmueG8cL8KKeFNecRCXFhaJ2qZ5SKA=
 github.com/moby/term v0.0.0-20221205130635-1aeaba878587/go.mod h1:8FzsFHVUBGZdbDsJw/ot+X+d5HLUbvklYLJ9uGfcI3Y=
 github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
