@@ -1,8 +1,9 @@
 package distributed_hash_ring
 
 import (
-	"github.com/lucifer1662/distrokdb/node/hash_ring"
 	"testing"
+
+	"github.com/lucifer1662/distrokdb/node/hash_ring"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -55,14 +56,16 @@ func TestDistributedTableAddWithConfig(t *testing.T) {
 	shared_config := SharedConfig{
 		Nodes: []Node{
 			{
-				Position: positions[0],
-				Address:  "localhost:1234",
-				Id:       0,
+				Position:    positions[0],
+				Address:     "localhost:1234",
+				Id:          0,
+				Physical_Id: 0,
 			},
 			{
-				Position: positions[1],
-				Address:  "localhost:1235",
-				Id:       1,
+				Position:    positions[1],
+				Address:     "localhost:1235",
+				Id:          1,
+				Physical_Id: 1,
 			},
 		},
 		Replication_factor: 1,

@@ -2,14 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/lucifer1662/distrokdb/node/distributed_hash_ring"
-	"github.com/lucifer1662/distrokdb/node/hash_ring"
-	"github.com/lucifer1662/distrokdb/node/http_db_server"
-	"github.com/lucifer1662/distrokdb/node/manager_server"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/lucifer1662/distrokdb/node/distributed_hash_ring"
+	"github.com/lucifer1662/distrokdb/node/hash_ring"
+	"github.com/lucifer1662/distrokdb/node/http_db_server"
+	"github.com/lucifer1662/distrokdb/node/manager_server"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,14 +21,16 @@ func create_two_node_setup(replication_factor int, min_writes int, min_reads int
 	shared_config := distributed_hash_ring.SharedConfig{
 		Nodes: []distributed_hash_ring.Node{
 			{
-				Position: positions[0],
-				Address:  "localhost:1234",
-				Id:       0,
+				Position:    positions[0],
+				Address:     "localhost:1234",
+				Id:          0,
+				Physical_Id: 0,
 			},
 			{
-				Position: positions[1],
-				Address:  "localhost:1235",
-				Id:       1,
+				Position:    positions[1],
+				Address:     "localhost:1235",
+				Id:          1,
+				Physical_Id: 1,
 			},
 		},
 		Replication_factor: replication_factor,

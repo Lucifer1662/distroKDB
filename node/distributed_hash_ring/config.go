@@ -8,9 +8,10 @@ import (
 )
 
 type Node struct {
-	Position hash_ring.KeyHash
-	Address  string
-	Id       uint64
+	Position    hash_ring.KeyHash
+	Address     string
+	Id          uint64
+	Physical_Id uint64
 }
 
 type SharedConfig struct {

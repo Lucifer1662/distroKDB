@@ -24,7 +24,7 @@ func New(config *InstanceConfig) hash_ring.Hash_Ring {
 			temporaryTable = &hash_ring.PanicTable{}
 		}
 
-		nodes[i] = hash_ring.NewNode(node.Position, permTable, temporaryTable, node.Id)
+		nodes[i] = hash_ring.NewNode(node.Position, permTable, temporaryTable, node.Physical_Id)
 	}
 
 	return hash_ring.New(nodes, config.Replication_factor, config.Minimum_writes, config.Minimum_read, &hash_ring.ConflictResolutionFirstInstance{})
