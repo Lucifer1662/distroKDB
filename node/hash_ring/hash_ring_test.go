@@ -16,8 +16,10 @@ func SimpleHashRingDefaultTest(t *testing.T, hr *Hash_Ring) {
 	assert.Greater(t, uint64(18446744073709551615)/2, Hash("bar"))
 	assert.Less(t, uint64(18446744073709551615)/2, Hash("foo"))
 
-	hr.Add("bar", "bar")
-	hr.Add("foo", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.Add("bar", "bar", &value_meta)
+	hr.Add("foo", "mar", &value_meta)
 
 	val, _ := hr.Get("bar")
 	assert.Equal(t, "bar", *val)
@@ -30,7 +32,7 @@ func SimpleHashRingDefaultTest(t *testing.T, hr *Hash_Ring) {
 }
 
 func TestAddGetSomeData(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 1, 1, 1, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 1, 1, 1, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
 		hr.nodes[i].table = &table
@@ -72,7 +74,7 @@ func TestCorrectVirtualNodeBoundsGenerated(t *testing.T) {
 }
 
 func TestDataSpreadsOut(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 1, 1, 1, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 1, 1, 1, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
 		hr.nodes[i].table = &table
@@ -80,8 +82,10 @@ func TestDataSpreadsOut(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
 	for i := 0; i < 10000; i++ {
-		hr.Add(fmt.Sprintf("%f{.9}", math.Cos(float64(i))), strconv.Itoa(i))
+		hr.Add(fmt.Sprintf("%f{.9}", math.Cos(float64(i))), strconv.Itoa(i), &value_meta)
 	}
 
 	for _, node := range hr.nodes {
@@ -93,7 +97,7 @@ func TestDataSpreadsOut(t *testing.T) {
 func ReplicatedNumber(t *testing.T, nodes []Node, key string) int {
 	count := 0
 	for i := range nodes {
-		val, err := nodes[i].Get(key)
+		val, _, err := nodes[i].Get(key)
 		if err == nil && val != nil {
 			print(i)
 			print(",")
@@ -107,7 +111,7 @@ func ReplicatedNumber(t *testing.T, nodes []Node, key string) int {
 func ReplicatedMatchesIndexes(t *testing.T, nodes []Node, key string) []int {
 	nums := []int{}
 	for i := range nodes {
-		val, err := nodes[i].Get(key)
+		val, _, err := nodes[i].Get(key)
 		if err == nil && val != nil {
 			nums = append(nums, i)
 		}
@@ -118,7 +122,7 @@ func ReplicatedMatchesIndexes(t *testing.T, nodes []Node, key string) []int {
 func ReplicatedMatchesIds(t *testing.T, nodes []Node, key string) []int {
 	nums := []int{}
 	for i := range nodes {
-		val, err := nodes[i].Get(key)
+		val, _, err := nodes[i].Get(key)
 		if err == nil && val != nil {
 			nums = append(nums, int(nodes[i].physical_id))
 		}
@@ -127,7 +131,7 @@ func ReplicatedMatchesIds(t *testing.T, nodes []Node, key string) []int {
 }
 
 func TestReplicateAllSuccessfully(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -143,7 +147,7 @@ func TestReplicateAllSuccessfully(t *testing.T) {
 }
 
 func TestReplicateAllSuccessfullyVirtual(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes_With_Virtual(5, []int{2, 2, 2, 2, 2}), 3, 3, 3, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes_With_Virtual(5, []int{2, 2, 2, 2, 2}), 3, 3, 3, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -166,14 +170,14 @@ type DelayAddTable struct {
 	wait_chan chan bool
 }
 
-func (t *DelayAddTable) Add(key string, value string) error {
+func (t *DelayAddTable) Add(key string, value string, meta *ValueMeta) error {
 	<-t.wait_chan
-	result := t.table.Add(key, value)
+	result := t.table.Add(key, value, meta)
 	t.wait_chan <- true
 	return result
 }
 
-func (t *DelayAddTable) Get(key string) (*string, error) {
+func (t *DelayAddTable) Get(key string) (*string, *ValueMeta, error) {
 	return t.table.Get(key)
 }
 
@@ -190,7 +194,7 @@ func (t *DelayAddTable) Erase(key string) {
 }
 
 func TestReplicateAllSuccessfullySlowNode(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 3, 2, 2, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 2, 2, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -201,7 +205,9 @@ func TestReplicateAllSuccessfullySlowNode(t *testing.T) {
 	slow_table := DelayAddTable{hr.nodes[0].table, make(chan bool)}
 	hr.nodes[0].table = &slow_table
 
-	hr.Add("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.Add("bar", "mar", &value_meta)
 
 	assert.Equal(t, []int{1, 2}, ReplicatedMatchesIndexes(t, hr.nodes, "bar"))
 	slow_table.wait_chan <- true //send update
@@ -210,7 +216,7 @@ func TestReplicateAllSuccessfullySlowNode(t *testing.T) {
 }
 
 func TestReplicateSinglePartialFailure(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -221,13 +227,15 @@ func TestReplicateSinglePartialFailure(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[0].table = &error_table
 
-	hr.Add("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.Add("bar", "mar", &value_meta)
 
 	assert.Equal(t, []int{1, 2, 3}, ReplicatedMatchesIndexes(t, hr.nodes, "bar"))
 }
 
 func TestReplicateSinglePartialFailureVirtual(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes_With_Virtual(5, []int{2, 2, 2, 2, 2}), 3, 3, 3, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes_With_Virtual(5, []int{2, 2, 2, 2, 2}), 3, 3, 3, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -238,14 +246,16 @@ func TestReplicateSinglePartialFailureVirtual(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[0].table = &error_table
 
-	hr.Add("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.Add("bar", "mar", &value_meta)
 	//normally "bar" is on 0,1,2, but since 0 fails it will be on 1,2,3
 	assert.Equal(t, []int{1, 2, 3}, ReplicatedMatchesIds(t, hr.nodes, "bar"))
 	assert.Equal(t, []int{2, 4, 6}, ReplicatedMatchesIndexes(t, hr.nodes, "bar"))
 }
 
 func TestReplicateMultiplePartialFailure(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -258,13 +268,15 @@ func TestReplicateMultiplePartialFailure(t *testing.T) {
 	hr.nodes[0].table = &error_table
 	hr.nodes[1].table = &error_table
 
-	hr.Add("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.Add("bar", "mar", &value_meta)
 
 	assert.Equal(t, []int{2, 3, 4}, ReplicatedMatchesIndexes(t, hr.nodes, "bar"))
 }
 
 func TestReplicateFullFailureSomeCommit(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	error_table := ErrorTable{}
 
@@ -276,19 +288,21 @@ func TestReplicateFullFailureSomeCommit(t *testing.T) {
 	hr.nodes[3].temporaryTable = &error_table
 	hr.nodes[4].temporaryTable = &error_table
 
-	err := hr.Add("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	err := hr.Add("bar", "mar", &value_meta)
 
 	assert.NotNil(t, err)
 
-	val, _ := memory_table1.Get("bar")
+	val, _, _ := memory_table1.Get("bar")
 	assert.Equal(t, "mar", *val)
 
-	val, _ = memory_table2.Get("bar")
+	val, _, _ = memory_table2.Get("bar")
 	assert.Equal(t, "mar", *val)
 }
 
 func TestReplicateFullFailure(t *testing.T) {
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, &ConflictResolutionFirstInstance{}, NewVectorClock()}
 
 	error_table := ErrorTable{}
 	for i := range hr.nodes {
@@ -296,7 +310,9 @@ func TestReplicateFullFailure(t *testing.T) {
 		hr.nodes[i].table = &error_table
 	}
 
-	err := hr.Add("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	err := hr.Add("bar", "mar", &value_meta)
 	assert.NotNil(t, err)
 }
 
@@ -306,7 +322,7 @@ type SavePositionConflictResolution struct {
 	Was_Called      bool
 }
 
-func (conflict *SavePositionConflictResolution) Resolve(key string, values []*string, nodes_position []uint64) int {
+func (conflict *SavePositionConflictResolution) Resolve(key string, values []*string, metas []*ValueMeta, nodes_position []uint64) *string {
 	sort.SliceStable(nodes_position, func(i, j int) bool {
 		return nodes_position[i] < nodes_position[j]
 	})
@@ -320,12 +336,12 @@ func (conflict *SavePositionConflictResolution) Resolve(key string, values []*st
 		}
 	}
 	conflict.Was_Called = true
-	return 0
+	return values[0]
 }
 
 func TestRetrieveAllSuccessfully(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 1, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 1, 3, resolution, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -334,9 +350,11 @@ func TestRetrieveAllSuccessfully(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
-	hr.nodes[0].Add("bar", "mar")
-	hr.nodes[1].Add("bar", "mar")
-	hr.nodes[2].Add("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.nodes[0].Add("bar", "mar", &value_meta)
+	hr.nodes[1].Add("bar", "mar", &value_meta)
+	hr.nodes[2].Add("bar", "mar", &value_meta)
 
 	hr.Get("bar")
 
@@ -347,7 +365,7 @@ func TestRetrieveAllSuccessfully(t *testing.T) {
 
 func TestRetrievePartialSuccessfully(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -359,9 +377,11 @@ func TestRetrievePartialSuccessfully(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[2].table = &error_table
 
-	hr.nodes[0].AddPermanent("bar", "mar")
-	hr.nodes[1].AddPermanent("bar", "mar")
-	hr.nodes[3].AddTemporary("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.nodes[0].AddPermanent("bar", "mar", &value_meta)
+	hr.nodes[1].AddPermanent("bar", "mar", &value_meta)
+	hr.nodes[3].AddTemporary("bar", "mar", &value_meta)
 
 	hr.Get("bar")
 
@@ -372,7 +392,7 @@ func TestRetrievePartialSuccessfully(t *testing.T) {
 
 func TestRetrievePartialFailure(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	error_table := ErrorTable{}
 	for i := range hr.nodes {
@@ -393,7 +413,7 @@ func TestRetrievePartialFailure(t *testing.T) {
 
 func TestRetrieveFullFailure(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	for i := range hr.nodes {
 		tempTable := NewInMemoryTable()
@@ -414,7 +434,7 @@ func TestRetrieveFullFailure(t *testing.T) {
 
 func TestReplicateToPrimaryFull(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -423,7 +443,9 @@ func TestReplicateToPrimaryFull(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
-	replicated_to := hr.ReplicateToPrimary("foo", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	replicated_to := hr.ReplicateToPrimary("foo", "mar", &value_meta)
 
 	assert.Equal(t, 3, replicated_to)
 
@@ -436,7 +458,7 @@ func TestReplicateToPrimaryFull(t *testing.T) {
 
 func TestReplicateToPrimaryPartial(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -448,7 +470,9 @@ func TestReplicateToPrimaryPartial(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[1].table = &error_table
 
-	replicated_to := hr.ReplicateToPrimary("foo", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	replicated_to := hr.ReplicateToPrimary("foo", "mar", &value_meta)
 
 	assert.Equal(t, 2, replicated_to)
 
@@ -461,7 +485,7 @@ func TestReplicateToPrimaryPartial(t *testing.T) {
 
 func TestRetrievePartialSuccessfullyRecovery(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	tempTable := NewInMemoryTable()
 	for i := range hr.nodes {
@@ -470,9 +494,11 @@ func TestRetrievePartialSuccessfullyRecovery(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
-	hr.nodes[0].AddPermanent("bar", "mar")
-	hr.nodes[1].AddPermanent("bar", "mar")
-	hr.nodes[3].AddTemporary("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.nodes[0].AddPermanent("bar", "mar", &value_meta)
+	hr.nodes[1].AddPermanent("bar", "mar", &value_meta)
+	hr.nodes[3].AddTemporary("bar", "mar", &value_meta)
 
 	Cleanup_temporary(&hr, &tempTable)
 
@@ -482,7 +508,7 @@ func TestRetrievePartialSuccessfullyRecovery(t *testing.T) {
 	assert.Equal(t, []uint64{partition_size * 1, partition_size * 2, partition_size * 3}, resolution.Nodes_positions)
 	assert.Equal(t, []string{"mar", "mar", "mar"}, resolution.Values)
 
-	val, err := hr.nodes[3].Get("bar")
+	val, err, _ := hr.nodes[3].Get("bar")
 	assert.Nil(t, err)
 	var nil_string *string = nil
 	assert.Equal(t, nil_string, val)
@@ -490,7 +516,7 @@ func TestRetrievePartialSuccessfullyRecovery(t *testing.T) {
 
 func TestRetrievePartialUnsuccessfullyRecovery(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	tempTable := NewInMemoryTable()
 	for i := range hr.nodes {
@@ -503,9 +529,11 @@ func TestRetrievePartialUnsuccessfullyRecovery(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[2].table = &error_table
 
-	hr.nodes[0].AddPermanent("bar", "mar")
-	hr.nodes[1].AddPermanent("bar", "mar")
-	hr.nodes[3].AddTemporary("bar", "mar")
+	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+
+	hr.nodes[0].AddPermanent("bar", "mar", &value_meta)
+	hr.nodes[1].AddPermanent("bar", "mar", &value_meta)
+	hr.nodes[3].AddTemporary("bar", "mar", &value_meta)
 
 	var partition_size uint64 = uint64(18446744073709551615) / 5
 
@@ -521,7 +549,7 @@ func TestRetrievePartialUnsuccessfullyRecovery(t *testing.T) {
 	assert.Equal(t, []uint64{partition_size * 1, partition_size * 2, partition_size * 4}, resolution.Nodes_positions)
 	assert.Equal(t, []string{"mar", "mar", "mar"}, resolution.Values)
 
-	val, err := hr.nodes[3].Get("bar")
+	val, err, _ := hr.nodes[3].Get("bar")
 	assert.Nil(t, err)
 	assert.Equal(t, "mar", *val)
 }

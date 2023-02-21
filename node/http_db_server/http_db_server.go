@@ -83,6 +83,10 @@ func (db *HttpDBServer) get(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+type Context struct {
+	clock hash_ring.VectorClock
+}
+
 func (db *HttpDBServer) add(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query()
 
@@ -98,7 +102,16 @@ func (db *HttpDBServer) add(w http.ResponseWriter, req *http.Request) {
 		value = query.Get("value")
 	}
 
-	err := db.hr.Add(key, value)
+	var context Context
+	if query.Has("context") {
+		err := json.Unmarshal([]byte(query.Get("context")), &context)
+		if err != nil {
+			w.WriteHeader(500)
+			return
+		}
+	}
+
+	err := db.hr.Add(key, value, hash_ring.NewValueMeta(context.clock))
 
 	if err == nil {
 		w.WriteHeader(200)

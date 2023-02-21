@@ -14,14 +14,14 @@ type DistributedTable struct {
 	position       hash_ring.KeyHash
 }
 
-func (t *DistributedTable) Add(key string, value string) error {
+func (t *DistributedTable) Add(key string, value string, meta *hash_ring.ValueMeta) error {
 	client, err := rpc.Dial("tcp", t.server_address)
 	if err != nil {
 		return err
 	}
 
 	// Synchronous call
-	args := &AddRequest{key, value, t.position}
+	args := &AddRequest{key, value, *meta, t.position}
 	var reply AddResponse
 
 	//blocks for response
@@ -32,10 +32,10 @@ func (t *DistributedTable) Add(key string, value string) error {
 	return nil
 }
 
-func (t *DistributedTable) Get(key string) (*string, error) {
+func (t *DistributedTable) Get(key string) (*string, *hash_ring.ValueMeta, error) {
 	client, err := rpc.Dial("tcp", t.server_address)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Synchronous call
@@ -45,9 +45,9 @@ func (t *DistributedTable) Get(key string) (*string, error) {
 	//blocks for response
 	err = client.Call("DistributedHashRingServer.Get", args, &reply)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return reply.Value, nil
+	return reply.Value, &reply.Meta, nil
 }
 
 func (t *DistributedTable) Remove(key string) error {
@@ -84,6 +84,7 @@ func NewServer(hr *hash_ring.Hash_Ring, port int) *DistributedHashRingServer {
 type AddRequest struct {
 	Key           string
 	Value         string
+	Meta          hash_ring.ValueMeta
 	Node_position hash_ring.KeyHash
 }
 
@@ -94,7 +95,7 @@ type AddResponse struct {
 
 func (t *DistributedHashRingServer) Add(request AddRequest, response *AddResponse) error {
 	var err error
-	err = t.hash_ring.AddToNodePermanent(request.Node_position, request.Key, request.Value)
+	err = t.hash_ring.AddToNodePermanent(request.Node_position, request.Key, request.Value, &request.Meta)
 
 	response.Success = err == nil
 	if !response.Success {
@@ -111,18 +112,18 @@ type GetRequest struct {
 type GetResponse struct {
 	Success       bool
 	Value         *string
+	Meta          hash_ring.ValueMeta
 	Error_message string
 }
 
 func (t *DistributedHashRingServer) Get(request GetRequest, response *GetResponse) error {
-	var err error
-	var value *string
-	value, err = t.hash_ring.GetFromNodePermanent(request.Node_position, request.Key)
+	value, meta, err := t.hash_ring.GetFromNodePermanent(request.Node_position, request.Key)
 
 	response.Success = err == nil
 	if !response.Success {
 		response.Error_message = err.Error()
 	}
+	response.Meta = *meta
 	response.Value = value
 	return err
 }

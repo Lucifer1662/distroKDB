@@ -6,11 +6,11 @@ type LocalTable struct {
 	table hash_ring.KeyValueTable
 }
 
-func (t *LocalTable) Add(key string, value string) error {
-	return t.table.Add(key, value)
+func (t *LocalTable) Add(key string, value string, meta *hash_ring.ValueMeta) error {
+	return t.table.Add(key, value, meta)
 }
 
-func (t *LocalTable) Get(key string) (*string, error) {
+func (t *LocalTable) Get(key string) (*string, *hash_ring.ValueMeta, error) {
 	return t.table.Get(key)
 }
 

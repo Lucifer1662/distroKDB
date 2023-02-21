@@ -2,11 +2,11 @@ package hash_ring
 
 type PanicTable struct{}
 
-func (t *PanicTable) Add(key string, value string) error {
+func (t *PanicTable) Add(key string, value string, meta *ValueMeta) error {
 	panic("Add operation should have never been called")
 }
 
-func (t *PanicTable) Get(key string) (*string, error) {
+func (t *PanicTable) Get(key string) (*string, *ValueMeta, error) {
 	panic("Add operation should have never been called")
 }
 

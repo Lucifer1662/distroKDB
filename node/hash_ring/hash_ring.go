@@ -26,13 +26,21 @@ func (r KeyHashRange) contains(key_hash KeyHash) bool {
 	return r.start <= key_hash && key_hash <= r.end
 }
 
+type ValueMeta struct {
+	vectorClock VectorClock
+}
+
+func NewValueMeta(vectorClock VectorClock) *ValueMeta {
+	return &ValueMeta{vectorClock: vectorClock}
+}
+
 type KeyValueIterator interface {
-	Next() (*string, *string)
+	Next() (*string, *string, *ValueMeta)
 }
 
 type KeyValueTable interface {
-	Add(string, string) error
-	Get(string) (*string, error)
+	Add(string, string, *ValueMeta) error
+	Get(string) (*string, *ValueMeta, error)
 	Size() int
 	Iter() KeyValueIterator
 	Erase(key string)
@@ -40,77 +48,13 @@ type KeyValueTable interface {
 
 func CopyToMap(table KeyValueTable, data *map[string]string) {
 	iter := table.Iter()
-	for key, value := iter.Next(); key != nil; key, value = iter.Next() {
+	for key, value, _ := iter.Next(); key != nil; key, value, _ = iter.Next() {
 		(*data)[*key] = *value
 	}
 }
 
-type Node struct {
-	position       KeyHash
-	table          KeyValueTable
-	temporaryTable KeyValueTable
-	physical_id    uint64
-}
-
-func NewNode(position KeyHash, table KeyValueTable, temporaryTable KeyValueTable, physical_id uint64) Node {
-	return Node{position, table, temporaryTable, physical_id}
-}
-
-func (n *Node) GetTable() KeyValueTable {
-	return n.table
-}
-
-func (n *Node) GetTemporaryTable() KeyValueTable {
-	return n.temporaryTable
-}
-
-func (n *Node) GetPosition() KeyHash {
-	return n.position
-}
-
-func (n *Node) GetPhysicalId() uint64 {
-	return n.physical_id
-}
-
-func (n *Node) SetTable(table KeyValueTable) {
-	n.table = table
-}
-
-func (n *Node) SetTemporaryTable(temporaryTable KeyValueTable) {
-	n.temporaryTable = temporaryTable
-}
-
-func (n *Node) Add(key string, value string) error {
-	return n.AddPermanent(key, value)
-}
-
-func (n *Node) AddPermanent(key string, value string) error {
-	return n.table.Add(key, value)
-}
-
-func (n *Node) AddTemporary(key string, value string) error {
-	return n.temporaryTable.Add(key, value)
-}
-
-func (n *Node) Get(key string) (*string, error) {
-	val, err := n.GetPermanent(key)
-	if err == nil && val != nil {
-		return val, err
-	} else {
-		return n.GetTemporary(key)
-	}
-}
-
-func (n *Node) GetPermanent(key string) (*string, error) {
-	return n.table.Get(key)
-}
-
-func (n *Node) GetTemporary(key string) (*string, error) {
-	return n.temporaryTable.Get(key)
-}
-
 type ConflictResolution interface {
-	Resolve(key string, values []*string, nodes_position []uint64) int
+	Resolve(key string, values []*string, metas []*ValueMeta, nodes_position []uint64) *string
 }
 
 type Hash_Ring struct {
@@ -119,6 +63,7 @@ type Hash_Ring struct {
 	minimum_writes      int
 	minimum_read        int
 	conflict_resolution ConflictResolution
+	vectorClock         VectorClock
 }
 
 func New(nodes []Node,
@@ -203,62 +148,80 @@ func (ring *Hash_Ring) wrapped_index(i int) int {
 	return i - ((i / len(ring.nodes)) * len(ring.nodes))
 }
 
-func (ring *Hash_Ring) add(key string, value string, key_hash uint64) error {
+func (ring *Hash_Ring) add(key string, value string, meta *ValueMeta, key_hash uint64) error {
 	return ring.consensus(key_hash, ring.minimum_writes, false, func(node *Node, result_chan chan bool, hinted bool) {
 		if hinted {
-			err := node.AddTemporary(key, value)
+			err := node.AddTemporary(key, value, meta)
 			result_chan <- (err == nil)
 		} else {
-			err := node.Add(key, value)
+			err := node.Add(key, value, meta)
 			result_chan <- (err == nil)
 		}
 
 	})
 }
 
-func (ring *Hash_Ring) Add(key string, value string) error {
-	return ring.add(key, value, Hash(key))
+func (ring *Hash_Ring) Add(key string, value string, meta *ValueMeta) error {
+	return ring.add(key, value, meta, Hash(key))
 }
 
-func (ring *Hash_Ring) AddToNodePermanent(node_position uint64, key string, value string) error {
+func (ring *Hash_Ring) resolveConflicts(node_id int, key string, value string, meta *ValueMeta) (string, *ValueMeta) {
+	old_value, current_meta, _ := ring.nodes[node_id].Get(key)
+
+	//if !(old -> new)
+	if IsNotCausal(&current_meta.vectorClock, &meta.vectorClock) {
+		//need to resolve version
+		new_value := ring.conflict_resolution.Resolve(key, []*string{old_value, &value}, []*ValueMeta{current_meta, meta}, []uint64{})
+		new_meta := ValueMeta{
+			vectorClock: MaxUpVectorClock(meta.vectorClock, current_meta.vectorClock),
+		}
+		return *new_value, &new_meta
+	} else {
+		return value, meta
+	}
+}
+
+func (ring *Hash_Ring) AddToNodePermanent(node_position uint64, key string, value string, meta *ValueMeta) error {
 	for i := range ring.nodes {
 		if node_position == ring.nodes[i].position {
-			return ring.nodes[i].AddPermanent(key, value)
+			new_value, new_meta := ring.resolveConflicts(i, key, value, meta)
+			return ring.nodes[i].AddPermanent(key, new_value, new_meta)
 		}
 	}
 	return errors.New("No node found")
 }
 
-func (ring *Hash_Ring) AddToNodeTemporary(node_position uint64, key string, value string) error {
+func (ring *Hash_Ring) AddToNodeTemporary(node_position uint64, key string, value string, meta *ValueMeta) error {
 	for i := range ring.nodes {
 		if node_position == ring.nodes[i].position {
-			return ring.nodes[i].AddTemporary(key, value)
+			new_value, new_meta := ring.resolveConflicts(i, key, value, meta)
+			return ring.nodes[i].AddTemporary(key, new_value, new_meta)
 		}
 	}
 	return errors.New("No node found")
 }
 
-func (ring *Hash_Ring) GetFromNodePermanent(node_position uint64, key string) (*string, error) {
+func (ring *Hash_Ring) GetFromNodePermanent(node_position uint64, key string) (*string, *ValueMeta, error) {
 	for i := range ring.nodes {
 		if node_position == ring.nodes[i].position {
 			return ring.nodes[i].GetPermanent(key)
 		}
 	}
-	return nil, errors.New("No node found")
+	return nil, nil, errors.New("No node found")
 }
 
-func (ring *Hash_Ring) GetFromNodeTemporary(node_position uint64, key string) (*string, error) {
+func (ring *Hash_Ring) GetFromNodeTemporary(node_position uint64, key string) (*string, *ValueMeta, error) {
 	for i := range ring.nodes {
 		if node_position == ring.nodes[i].position {
 			return ring.nodes[i].GetTemporary(key)
 		}
 	}
-	return nil, errors.New("No node found")
+	return nil, nil, errors.New("No node found")
 }
 
-func (ring *Hash_Ring) ReplicateToPrimary(key string, value string) int {
+func (ring *Hash_Ring) ReplicateToPrimary(key string, value string, meta *ValueMeta) int {
 	return ring.consensus_only_primary(Hash(key), func(node *Node, result_chan chan bool) {
-		err := node.Add(key, value)
+		err := node.Add(key, value, meta)
 		result_chan <- (err == nil)
 	})
 }
@@ -399,22 +362,25 @@ func (ring *Hash_Ring) consensus(key_hash KeyHash, minimum_for_early_return int,
 
 func (ring *Hash_Ring) get(key string, key_hash uint64) (*string, error) {
 	results := []*string{}
+	metas := []*ValueMeta{}
 	nodes_results := []uint64{}
 	lock := sync.Mutex{}
 
 	err := ring.consensus(key_hash, ring.minimum_read, false, func(node *Node, result_chan chan bool, hinted bool) {
 		var value *string
+		var meta *ValueMeta
 		var err error
 		if hinted {
-			value, err = node.GetTemporary(key)
+			value, meta, err = node.GetTemporary(key)
 		} else {
-			value, err = node.GetPermanent(key)
+			value, meta, err = node.GetPermanent(key)
 		}
 
 		result_chan <- (err == nil)
 		if err == nil && value != nil {
 			lock.Lock()
 			results = append(results, value)
+			metas = append(metas, meta)
 			nodes_results = append(nodes_results, node.position)
 			lock.Unlock()
 		}
@@ -424,38 +390,24 @@ func (ring *Hash_Ring) get(key string, key_hash uint64) (*string, error) {
 		return nil, err
 	}
 
-	//perform merge
-	selection := ring.conflict_resolution.Resolve(key, results, nodes_results)
-
-	if selection < 0 || selection >= len(results) {
-		return nil, errors.New("Could not resolve conflicting merge")
+	if len(results) == 0 {
+		return nil, errors.New("Not enough values")
 	}
 
-	return results[selection], err
+	//perform merge
+	new_value := ring.conflict_resolution.Resolve(key, results, metas, nodes_results)
+
+	return new_value, err
 }
 
 func (ring *Hash_Ring) Get(key string) (*string, error) {
 	return ring.get(key, Hash(key))
 }
 
-// func (ring *Hash_Ring) Cleanup_temporary() {
-// 	for i := range ring.nodes {
-// 		node := &ring.nodes[i]
-// 		iter := node.temporaryTable.Iter()
-// 		for key, value := iter.Next(); key != nil; key, value = iter.Next() {
-// 			num_replicated_to := ring.ReplicateToPrimary(*key, *value)
-// 			if num_replicated_to == ring.replication_factor {
-// 				//adheres to replication invariant, therefore can delete from temp
-// 				node.temporaryTable.Erase(*key)
-// 			}
-// 		}
-// 	}
-// }
-
 func Cleanup_temporary(ring *Hash_Ring, temporaryTable KeyValueTable) {
 	iter := temporaryTable.Iter()
-	for key, value := iter.Next(); key != nil; key, value = iter.Next() {
-		num_replicated_to := ring.ReplicateToPrimary(*key, *value)
+	for key, value, meta := iter.Next(); key != nil; key, value, meta = iter.Next() {
+		num_replicated_to := ring.ReplicateToPrimary(*key, *value, meta)
 		if num_replicated_to == ring.replication_factor {
 			//adheres to replication invariant, therefore can delete from temp
 			temporaryTable.Erase(*key)

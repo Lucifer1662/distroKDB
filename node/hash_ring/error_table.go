@@ -4,12 +4,12 @@ import "errors"
 
 type ErrorTable struct{}
 
-func (t *ErrorTable) Add(key string, value string) error {
+func (t *ErrorTable) Add(key string, value string, meta *ValueMeta) error {
 	return errors.New("Failed")
 }
 
-func (t *ErrorTable) Get(key string) (*string, error) {
-	return nil, errors.New("Failed")
+func (t *ErrorTable) Get(key string) (*string, *ValueMeta, error) {
+	return nil, nil, errors.New("Failed")
 }
 
 func (t *ErrorTable) Size() int {
@@ -18,8 +18,8 @@ func (t *ErrorTable) Size() int {
 
 type ErrorIterator struct{}
 
-func (t *ErrorIterator) Next() (*string, *string) {
-	return nil, nil
+func (t *ErrorIterator) Next() (*string, *string, *ValueMeta) {
+	return nil, nil, nil
 }
 
 func (t *ErrorTable) Iter() KeyValueIterator {

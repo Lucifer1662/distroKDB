@@ -2,28 +2,33 @@ package hash_ring
 
 import "sync"
 
+type Value struct {
+	value string
+	meta  ValueMeta
+}
+
 type InMemoryTable struct {
-	data map[string]string
+	data map[string]Value
 	lock sync.Mutex
 }
 
-func NewInMemoryTable() InMemoryTable { return InMemoryTable{make(map[string]string), sync.Mutex{}} }
+func NewInMemoryTable() InMemoryTable { return InMemoryTable{make(map[string]Value), sync.Mutex{}} }
 
-func (t *InMemoryTable) Add(key string, value string) error {
+func (t *InMemoryTable) Add(key string, value string, meta *ValueMeta) error {
 	defer t.lock.Unlock()
 	t.lock.Lock()
-	t.data[key] = value
+	t.data[key] = Value{value: value, meta: *meta}
 	return nil
 }
 
-func (t *InMemoryTable) Get(key string) (*string, error) {
+func (t *InMemoryTable) Get(key string) (*string, *ValueMeta, error) {
 	defer t.lock.Unlock()
 	t.lock.Lock()
 	value, success := t.data[key]
 	if success {
-		return &value, nil
+		return &value.value, &value.meta, nil
 	} else {
-		return nil, nil
+		return nil, nil, nil
 	}
 }
 
@@ -36,17 +41,17 @@ func (t *InMemoryTable) Size() int {
 type iterator struct {
 	current_index int
 	keys          []string
-	data          map[string]string
+	data          map[string]Value
 }
 
-func (t *iterator) Next() (*string, *string) {
+func (t *iterator) Next() (*string, *string, *ValueMeta) {
 	t.current_index++
 	if t.current_index < len(t.data) {
 		key := t.keys[t.current_index]
 		value := t.data[key]
-		return &key, &value
+		return &key, &value.value, &value.meta
 	} else {
-		return nil, nil
+		return nil, nil, nil
 	}
 }
 
