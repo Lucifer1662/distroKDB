@@ -1,4 +1,4 @@
-package cluster_manager
+package main
 
 import (
 	"encoding/json"
@@ -71,12 +71,11 @@ func insert(a []int, index int, value int) []int {
 }
 
 func (manager *ClusterManager) Add_Node(
-	base_node  Node,
+	base_node Node,
 	number_of_virtual_nodes int) {
 
 	base_node.Physical_Id = manager.Next_physical_node_id
 	manager.Next_physical_node_id++
-
 
 	new_number_of_nodes := len(manager.Nodes) + number_of_virtual_nodes
 
@@ -96,41 +95,42 @@ func (manager *ClusterManager) Add_Node(
 
 	ring_positions := hash_ring.Generate_Ring_Positions(new_number_of_nodes)
 	for i := range ring_positions {
-		manager.Nodes[i].Position = ring_positions[i]
+		new_nodes[i].Position = ring_positions[i]
 	}
 
+	manager.Nodes = new_nodes
 }
 
 func New(
 	number_of_nodes int,
-	base_node  Node,
-	number_of_virtual_nodes int) ClusterManager {
+	base_node Node,
+	number_of_virtual_nodes int,
+	replication_factor int,
+	minimum_writes int,
+	minimum_read int) ClusterManager {
 
-	new_nodes := make([]Node, number_of_nodes)
+	new_nodes := make([]Node, number_of_nodes*number_of_virtual_nodes)
 	for i := 0; i < number_of_virtual_nodes; i++ {
 		for j := 0; j < number_of_nodes; j++ {
-			base_node.Id = manager.Next_node_id
-			base_node.Physical_Id = j
-			manager.Next_node_id++
-			new_nodes[i * number_of_nodes + j] = base_node
+			base_node.Id = uint64(i*number_of_nodes + j)
+			base_node.Physical_Id = uint64(j)
+			new_nodes[i*number_of_nodes+j] = base_node
 		}
 	}
 
-	ring_positions := hash_ring.Generate_Ring_Positions(new_number_of_nodes)
+	ring_positions := hash_ring.Generate_Ring_Positions(len(new_nodes))
 	for i := range ring_positions {
 		new_nodes[i].Position = ring_positions[i]
 	}
 
 	return ClusterManager{
-		Nodes: new_nodes,
-		Replication_factor: Replication_factor,
-		Minimum_writes: minimum_writes,
-		Minimum_read: Minimum_read,
+		Nodes:                 new_nodes,
+		Replication_factor:    replication_factor,
+		Minimum_writes:        minimum_writes,
+		Minimum_read:          minimum_read,
 		Next_physical_node_id: uint64(number_of_nodes),
-		Next_node_id: len(new_nodes),
-
+		Next_node_id:          uint64(len(new_nodes)),
 	}
-
 }
 
 /*
@@ -253,46 +253,65 @@ func ReadClusterManager(path string) (*ClusterManager, error) {
 }
 
 func main() {
-	manager, err := ReadClusterManager("cluster_manager.json")
-
-	if err != nil {
-		println(err.Error())
-	}
 
 	switch os.Args[1] {
+	case "help":
+		println("Example of add:")
+		println("cluster_manager add --config_address=\"127.0.0.1:6500\" --public_address=\"127.0.0.1:6500\" --external_http_port=6443 --node_port=6023 --http_port=8080 --number_virtual_nodes 2")
+
+		println("Example of init:")
+		println("cluster_manager init --config_address=\"127.0.0.1:6500\" --public_address=\"127.0.0.1:6500\" --external_http_port=6443 --node_port=6023 --http_port=8080 --number_virtual_nodes 2 --number_physical_nodes=3 --replication_factor=2 --minimum_writes=2 --minimum_reads=2")
+
 	case "init":
-		var new_node_config_address string
-		var new_node_external_address string
-		var new_node_external_http_address string
-		var internal_port int
-		var new_node_internal_http_port int
 		var number_of_virtual_nodes int
-		flag.StringVar(&new_node_config_address, "config_address", "", "The external address that the node will listen on for management information")
-		flag.StringVar(&new_node_external_address, "public_address", "", "The public address that the node will communicate with other nodes directly")
-		flag.StringVar(&new_node_external_http_address, "external_http_port", "", "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
+		var number_of_nodes int
+		var replication_factor int
+		var minimum_writes int
+		var minimum_read int
+		base_node := Node{}
 
-		flag.IntVar(&internal_port, "node_port", 6023, "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
-		flag.IntVar(&new_node_internal_http_port, "http_port", 8080, "The port the node will listen on to accept http request from clients")
-		flag.IntVar(&number_of_virtual_nodes, "number_virtual_nodes", 1, "The number of virtual nodes for this physical node")
-		manager.Add_Node(new_node_config_address, internal_port, new_node_external_address, new_node_internal_http_port, new_node_external_http_address, number_of_virtual_nodes)
-		fmt.Println("one")
-	}
+		flag.StringVar(&base_node.Node_config_address, "config_address", "", "The external address that the node will listen on for management information")
+		flag.StringVar(&base_node.Address, "public_address", "", "The public address that the node will communicate with other nodes directly")
+		flag.StringVar(&base_node.Http_node_address, "external_http_port", "", "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
+
+		flag.IntVar(&base_node.Internal_port, "node_port", 6023, "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
+		flag.IntVar(&base_node.Http_port, "http_port", 8080, "The port the node will listen on to accept http request from clients")
+		flag.IntVar(&number_of_virtual_nodes, "number_virtual_nodes", 1, "The number of virtual nodes for each physical node")
+		flag.IntVar(&number_of_nodes, "number_physical_nodes", 3, "The number of physical nodes")
+		flag.IntVar(&replication_factor, "replication_factor", 3, "The number of physical nodes")
+		flag.IntVar(&minimum_writes, "minimum_writes", 1, "The minium number of writes before response is sent to client")
+		flag.IntVar(&minimum_read, "minimum_reads", 1, "The minimum number of reads before results are returned to client")
+
+		flag.CommandLine.Parse(os.Args[2:])
+
+		fmt.Printf("Config Address %s\n", base_node.Node_config_address)
+
+		fmt.Printf("Number of Physical Nodes %d\n", number_of_nodes)
+		fmt.Printf("Number of Virtual Nodes %d\n", number_of_virtual_nodes)
+		fmt.Printf("Total number of nodes %d\n", number_of_virtual_nodes*number_of_nodes)
+
+		manager := New(number_of_nodes, base_node, number_of_virtual_nodes, replication_factor, minimum_writes, minimum_read)
+		SaveClusterManagerState("cluster_manager.json", &manager)
+
 	case "add":
-		var new_node_config_address string
-		var new_node_external_address string
-		var new_node_external_http_address string
-		var internal_port int
-		var new_node_internal_http_port int
-		var number_of_virtual_nodes int
-		flag.StringVar(&new_node_config_address, "config_address", "", "The external address that the node will listen on for management information")
-		flag.StringVar(&new_node_external_address, "public_address", "", "The public address that the node will communicate with other nodes directly")
-		flag.StringVar(&new_node_external_http_address, "external_http_port", "", "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
+		manager, err := ReadClusterManager("cluster_manager.json")
+		if err != nil {
+			println(err.Error())
+		}
 
-		flag.IntVar(&internal_port, "node_port", 6023, "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
-		flag.IntVar(&new_node_internal_http_port, "http_port", 8080, "The port the node will listen on to accept http request from clients")
+		var number_of_virtual_nodes int
+		base_node := Node{}
+
+		flag.StringVar(&base_node.Node_config_address, "config_address", "", "The external address that the node will listen on for management information")
+		flag.StringVar(&base_node.Address, "public_address", "", "The public address that the node will communicate with other nodes directly")
+		flag.StringVar(&base_node.Http_node_address, "external_http_port", "", "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
+
+		flag.IntVar(&base_node.Internal_port, "node_port", 6023, "The port the node will listen on for communication between nodes, may be different to the public_address if the system is using proxies or docker containers")
+		flag.IntVar(&base_node.Http_port, "http_port", 8080, "The port the node will listen on to accept http request from clients")
 		flag.IntVar(&number_of_virtual_nodes, "number_virtual_nodes", 1, "The number of virtual nodes for this physical node")
-		manager.Add_Node(new_node_config_address, internal_port, new_node_external_address, new_node_internal_http_port, new_node_external_http_address, number_of_virtual_nodes)
-		fmt.Println("one")
+
+		manager.Add_Node(base_node, number_of_virtual_nodes)
+		SaveClusterManagerState("cluster_manager.json", manager)
 	}
 
 }
