@@ -21,7 +21,7 @@ func New(config *InstanceConfig) hash_ring.Hash_Ring {
 		} else {
 			permTable = &DistributedTable{node.Address, node.Position}
 			//temporary Table should never be directly accessed from distributed source
-			temporaryTable = &hash_ring.PanicTable{}
+			temporaryTable = &hash_ring.EmptyTable{}
 		}
 
 		nodes[i] = hash_ring.NewNode(node.Position, permTable, temporaryTable, node.Physical_Id)

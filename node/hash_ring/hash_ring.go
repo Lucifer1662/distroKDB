@@ -27,11 +27,11 @@ func (r KeyHashRange) contains(key_hash KeyHash) bool {
 }
 
 type ValueMeta struct {
-	vectorClock VectorClock
+	VectorClock VectorClock
 }
 
 func NewValueMeta(vectorClock VectorClock) *ValueMeta {
-	return &ValueMeta{vectorClock: vectorClock}
+	return &ValueMeta{VectorClock: vectorClock}
 }
 
 type KeyValueIterator interface {
@@ -169,11 +169,11 @@ func (ring *Hash_Ring) resolveConflicts(node_id int, key string, value string, m
 	old_value, current_meta, _ := ring.nodes[node_id].Get(key)
 
 	//if !(old -> new)
-	if IsNotCausal(&current_meta.vectorClock, &meta.vectorClock) {
+	if old_value != nil && IsNotCausal(&current_meta.VectorClock, &meta.VectorClock) {
 		//need to resolve version
 		new_value := ring.conflict_resolution.Resolve(key, []*string{old_value, &value}, []*ValueMeta{current_meta, meta}, []uint64{})
 		new_meta := ValueMeta{
-			vectorClock: MaxUpVectorClock(meta.vectorClock, current_meta.vectorClock),
+			VectorClock: MaxUpVectorClock(meta.VectorClock, current_meta.VectorClock),
 		}
 		return *new_value, &new_meta
 	} else {
@@ -376,7 +376,6 @@ func (ring *Hash_Ring) get(key string, key_hash uint64) (*string, error) {
 			value, meta, err = node.GetPermanent(key)
 		}
 
-		result_chan <- (err == nil)
 		if err == nil && value != nil {
 			lock.Lock()
 			results = append(results, value)
@@ -384,6 +383,7 @@ func (ring *Hash_Ring) get(key string, key_hash uint64) (*string, error) {
 			nodes_results = append(nodes_results, node.position)
 			lock.Unlock()
 		}
+		result_chan <- (err == nil)
 	})
 
 	if err != nil {

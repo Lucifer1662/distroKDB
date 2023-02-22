@@ -12,14 +12,18 @@ func TestDistributedTableAdd(t *testing.T) {
 	nodes1 := hash_ring.Generate_Nodes(2)
 	hr1 := hash_ring.New(nodes1, 1, 1, 1, &hash_ring.ConflictResolutionFirstInstance{})
 	nodes1[0].SetTable(&DistributedTable{"localhost:1234", nodes1[0].GetPosition()})
+	nodes1[0].SetTemporaryTable(&hash_ring.EmptyTable{})
 	table1 := hash_ring.NewInMemoryTable()
 	nodes1[1].SetTable(&LocalTable{&table1})
+	nodes1[1].SetTemporaryTable(&hash_ring.EmptyTable{})
 
 	nodes2 := hash_ring.Generate_Nodes(2)
 	hr2 := hash_ring.New(nodes2, 1, 1, 1, &hash_ring.ConflictResolutionFirstInstance{})
 	table2 := hash_ring.NewInMemoryTable()
 	nodes2[0].SetTable(&LocalTable{&table2})
+	nodes2[0].SetTemporaryTable(&hash_ring.EmptyTable{})
 	nodes2[1].SetTable(&DistributedTable{"localhost:1235", nodes2[1].GetPosition()})
+	nodes2[1].SetTemporaryTable(&hash_ring.EmptyTable{})
 
 	server1 := NewServer(&hr1, 1235)
 	server2 := NewServer(&hr2, 1234)

@@ -28,7 +28,7 @@ func (t *InMemoryTable) Get(key string) (*string, *ValueMeta, error) {
 	if success {
 		return &value.value, &value.meta, nil
 	} else {
-		return nil, nil, nil
+		return nil, NewValueMeta(NewVectorClock()), nil
 	}
 }
 

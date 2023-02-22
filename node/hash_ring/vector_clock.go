@@ -1,11 +1,11 @@
 package hash_ring
 
 type VectorClock struct {
-	counts map[int]int
+	Counts map[int]int
 }
 
 func (clock *VectorClock) get(i int) int {
-	v, success := clock.counts[i]
+	v, success := clock.Counts[i]
 	if success {
 		return v
 	} else {
@@ -26,11 +26,11 @@ func MaxInt(x, y int) int {
 
 func MaxUpVectorClock(clock1 VectorClock, clock2 VectorClock) VectorClock {
 	new_clock := VectorClock{make(map[int]int)}
-	for key := range clock1.counts {
-		new_clock.counts[key] = MaxInt(clock1.get(key), clock1.get(key))
+	for key := range clock1.Counts {
+		new_clock.Counts[key] = MaxInt(clock1.get(key), clock1.get(key))
 	}
-	for key := range clock2.counts {
-		new_clock.counts[key] = MaxInt(clock1.get(key), clock1.get(key))
+	for key := range clock2.Counts {
+		new_clock.Counts[key] = MaxInt(clock1.get(key), clock1.get(key))
 	}
 	return new_clock
 }
@@ -55,5 +55,5 @@ func isNotCausal(left *VectorClock, right *VectorClock, keys map[int]int) bool {
 
 // !(left -> right)
 func IsNotCausal(left *VectorClock, right *VectorClock) bool {
-	return isNotCausal(left, right, left.counts) && isNotCausal(left, right, left.counts)
+	return isNotCausal(left, right, left.Counts) && isNotCausal(left, right, left.Counts)
 }

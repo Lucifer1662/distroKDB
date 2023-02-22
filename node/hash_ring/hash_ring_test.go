@@ -16,7 +16,7 @@ func SimpleHashRingDefaultTest(t *testing.T, hr *Hash_Ring) {
 	assert.Greater(t, uint64(18446744073709551615)/2, Hash("bar"))
 	assert.Less(t, uint64(18446744073709551615)/2, Hash("foo"))
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.Add("bar", "bar", &value_meta)
 	hr.Add("foo", "mar", &value_meta)
@@ -82,7 +82,7 @@ func TestDataSpreadsOut(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	for i := 0; i < 10000; i++ {
 		hr.Add(fmt.Sprintf("%f{.9}", math.Cos(float64(i))), strconv.Itoa(i), &value_meta)
@@ -205,7 +205,7 @@ func TestReplicateAllSuccessfullySlowNode(t *testing.T) {
 	slow_table := DelayAddTable{hr.nodes[0].table, make(chan bool)}
 	hr.nodes[0].table = &slow_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.Add("bar", "mar", &value_meta)
 
@@ -227,7 +227,7 @@ func TestReplicateSinglePartialFailure(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[0].table = &error_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.Add("bar", "mar", &value_meta)
 
@@ -246,7 +246,7 @@ func TestReplicateSinglePartialFailureVirtual(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[0].table = &error_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.Add("bar", "mar", &value_meta)
 	//normally "bar" is on 0,1,2, but since 0 fails it will be on 1,2,3
@@ -268,7 +268,7 @@ func TestReplicateMultiplePartialFailure(t *testing.T) {
 	hr.nodes[0].table = &error_table
 	hr.nodes[1].table = &error_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.Add("bar", "mar", &value_meta)
 
@@ -288,7 +288,7 @@ func TestReplicateFullFailureSomeCommit(t *testing.T) {
 	hr.nodes[3].temporaryTable = &error_table
 	hr.nodes[4].temporaryTable = &error_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	err := hr.Add("bar", "mar", &value_meta)
 
@@ -310,7 +310,7 @@ func TestReplicateFullFailure(t *testing.T) {
 		hr.nodes[i].table = &error_table
 	}
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	err := hr.Add("bar", "mar", &value_meta)
 	assert.NotNil(t, err)
@@ -341,7 +341,7 @@ func (conflict *SavePositionConflictResolution) Resolve(key string, values []*st
 
 func TestRetrieveAllSuccessfully(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
-	hr := Hash_Ring{Generate_Nodes(5), 3, 1, 3, resolution, NewVectorClock()}
+	hr := Hash_Ring{Generate_Nodes(5), 3, 3, 3, resolution, NewVectorClock()}
 
 	for i := range hr.nodes {
 		table := NewInMemoryTable()
@@ -350,7 +350,7 @@ func TestRetrieveAllSuccessfully(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.nodes[0].Add("bar", "mar", &value_meta)
 	hr.nodes[1].Add("bar", "mar", &value_meta)
@@ -377,7 +377,7 @@ func TestRetrievePartialSuccessfully(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[2].table = &error_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.nodes[0].AddPermanent("bar", "mar", &value_meta)
 	hr.nodes[1].AddPermanent("bar", "mar", &value_meta)
@@ -443,7 +443,7 @@ func TestReplicateToPrimaryFull(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	replicated_to := hr.ReplicateToPrimary("foo", "mar", &value_meta)
 
@@ -470,7 +470,7 @@ func TestReplicateToPrimaryPartial(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[1].table = &error_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	replicated_to := hr.ReplicateToPrimary("foo", "mar", &value_meta)
 
@@ -494,7 +494,7 @@ func TestRetrievePartialSuccessfullyRecovery(t *testing.T) {
 		hr.nodes[i].temporaryTable = &tempTable
 	}
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.nodes[0].AddPermanent("bar", "mar", &value_meta)
 	hr.nodes[1].AddPermanent("bar", "mar", &value_meta)
@@ -529,7 +529,7 @@ func TestRetrievePartialUnsuccessfullyRecovery(t *testing.T) {
 	error_table := ErrorTable{}
 	hr.nodes[2].table = &error_table
 
-	value_meta := ValueMeta{vectorClock: NewVectorClock()}
+	value_meta := ValueMeta{VectorClock: NewVectorClock()}
 
 	hr.nodes[0].AddPermanent("bar", "mar", &value_meta)
 	hr.nodes[1].AddPermanent("bar", "mar", &value_meta)
@@ -549,7 +549,7 @@ func TestRetrievePartialUnsuccessfullyRecovery(t *testing.T) {
 	assert.Equal(t, []uint64{partition_size * 1, partition_size * 2, partition_size * 4}, resolution.Nodes_positions)
 	assert.Equal(t, []string{"mar", "mar", "mar"}, resolution.Values)
 
-	val, err, _ := hr.nodes[3].Get("bar")
+	val, _, err := hr.nodes[3].Get("bar")
 	assert.Nil(t, err)
 	assert.Equal(t, "mar", *val)
 }
