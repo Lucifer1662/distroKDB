@@ -68,7 +68,7 @@ func (db *HttpDBServer) get(w http.ResponseWriter, req *http.Request) {
 
 	key := query.Get("key")
 
-	value, err := db.hr.Get(key)
+	value, _, err := db.hr.Get(key)
 
 	if err == nil {
 		json_string, json_err := json.Marshal(value)

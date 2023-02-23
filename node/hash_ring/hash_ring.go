@@ -30,6 +30,12 @@ type ValueMeta struct {
 	VectorClock VectorClock
 }
 
+func (meta *ValueMeta) Copy() *ValueMeta {
+	return &ValueMeta{
+		VectorClock: meta.VectorClock.Copy(),
+	}
+}
+
 func NewValueMeta(vectorClock VectorClock) *ValueMeta {
 	return &ValueMeta{VectorClock: vectorClock}
 }
@@ -63,7 +69,7 @@ type Hash_Ring struct {
 	minimum_writes      int
 	minimum_read        int
 	conflict_resolution ConflictResolution
-	vectorClock         VectorClock
+	myId                uint64
 }
 
 func New(nodes []Node,
@@ -162,7 +168,9 @@ func (ring *Hash_Ring) add(key string, value string, meta *ValueMeta, key_hash u
 }
 
 func (ring *Hash_Ring) Add(key string, value string, meta *ValueMeta) error {
-	return ring.add(key, value, meta, Hash(key))
+	new_meta := meta.Copy()
+	new_meta.VectorClock.Counts[int(ring.myId)] = new_meta.VectorClock.Get(int(ring.myId)) + 1
+	return ring.add(key, value, new_meta, Hash(key))
 }
 
 func (ring *Hash_Ring) resolveConflicts(node_id int, key string, value string, meta *ValueMeta) (string, *ValueMeta) {
@@ -360,10 +368,12 @@ func (ring *Hash_Ring) consensus(key_hash KeyHash, minimum_for_early_return int,
 	return <-minimum_succeeded_chan
 }
 
-func (ring *Hash_Ring) get(key string, key_hash uint64) (*string, error) {
+func (ring *Hash_Ring) get(key string, key_hash uint64) (*string, *ValueMeta, error) {
 	results := []*string{}
 	metas := []*ValueMeta{}
 	nodes_results := []uint64{}
+	nodes_involved := []*Node{}
+	was_primary := []bool{}
 	lock := sync.Mutex{}
 
 	err := ring.consensus(key_hash, ring.minimum_read, false, func(node *Node, result_chan chan bool, hinted bool) {
@@ -377,30 +387,72 @@ func (ring *Hash_Ring) get(key string, key_hash uint64) (*string, error) {
 		}
 
 		if err == nil && value != nil {
+			// if err == nil {
 			lock.Lock()
 			results = append(results, value)
 			metas = append(metas, meta)
 			nodes_results = append(nodes_results, node.position)
+			nodes_involved = append(nodes_involved, node)
+			was_primary = append(was_primary, !hinted)
 			lock.Unlock()
 		}
 		result_chan <- (err == nil)
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if len(results) == 0 {
-		return nil, errors.New("Not enough values")
+		return nil, NewValueMeta(NewVectorClock()), nil
 	}
 
-	//perform merge
-	new_value := ring.conflict_resolution.Resolve(key, results, metas, nodes_results)
+	leading_clocks := make([]*VectorClock, len(metas))
+	for i := range metas {
+		leading_clocks[i] = &metas[i].VectorClock
+	}
 
-	return new_value, err
+	var latest_value *string
+	var latest_meta *ValueMeta
+	newest_casual_clock_index := FindLatestCasualVersion(leading_clocks)
+	if newest_casual_clock_index != -1 {
+		//no conflict resolution required
+		latest_value = results[newest_casual_clock_index]
+		latest_meta = metas[newest_casual_clock_index]
+
+	} else {
+		//Non casual relation found
+		//Need to perform merge and create new leading version
+		//perform merge
+		latest_value = ring.conflict_resolution.Resolve(key, results, metas, nodes_results)
+
+		//calculate newest version
+		clocks := make([]VectorClock, len(metas))
+		for i := range metas {
+			clocks[i] = metas[i].VectorClock
+		}
+		new_clock := MaxUpVectorClocks(clocks)
+		new_clock.Add(int(ring.myId))
+
+		latest_meta = NewValueMeta(new_clock)
+	}
+
+	//should update old versions to latest version
+	//will all be nil, if no head version is found
+	for i := range leading_clocks {
+		if leading_clocks[i] == nil {
+			if was_primary[i] {
+				nodes_involved[i].AddPermanent(key, *latest_value, latest_meta)
+			} else {
+				nodes_involved[i].AddTemporary(key, *latest_value, latest_meta)
+			}
+		}
+	}
+
+	return latest_value, latest_meta, nil
 }
 
-func (ring *Hash_Ring) Get(key string) (*string, error) {
+func (ring *Hash_Ring) Get(key string) (*string, *ValueMeta, error) {
 	return ring.get(key, Hash(key))
 }
 

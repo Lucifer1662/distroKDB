@@ -38,20 +38,20 @@ func TestDistributedTableAdd(t *testing.T) {
 	value_meta := hash_ring.NewValueMeta(hash_ring.NewVectorClock())
 
 	hr1.Add("bar", "bar", value_meta)
-	val, err := hr1.Get("bar")
+	val, _, err := hr1.Get("bar")
 	assert.Equal(t, "bar", *val)
 	assert.Equal(t, nil, err)
 
-	val, err = hr2.Get("bar")
+	val, _, err = hr2.Get("bar")
 	assert.Equal(t, "bar", *val)
 	assert.Equal(t, nil, err)
 
 	hr2.Add("foo", "foo", value_meta)
-	val, err = hr2.Get("foo")
+	val, _, err = hr2.Get("foo")
 	assert.Equal(t, "foo", *val)
 	assert.Equal(t, nil, err)
 
-	val, err = hr1.Get("foo")
+	val, _, err = hr1.Get("foo")
 	assert.Equal(t, "foo", *val)
 	assert.Equal(t, nil, err)
 }
@@ -98,20 +98,20 @@ func TestDistributedTableAddWithConfig(t *testing.T) {
 	value_meta := hash_ring.NewValueMeta(hash_ring.NewVectorClock())
 
 	hr1.Add("bar", "bar", value_meta)
-	val, err := hr1.Get("bar")
+	val, _, err := hr1.Get("bar")
 	assert.Equal(t, "bar", *val)
 	assert.Equal(t, nil, err)
 
-	val, err = hr2.Get("bar")
+	val, _, err = hr2.Get("bar")
 	assert.Equal(t, "bar", *val)
 	assert.Equal(t, nil, err)
 
 	hr2.Add("foo", "foo", value_meta)
-	val, err = hr2.Get("foo")
+	val, _, err = hr2.Get("foo")
 	assert.Equal(t, "foo", *val)
 	assert.Equal(t, nil, err)
 
-	val, err = hr1.Get("foo")
+	val, _, err = hr1.Get("foo")
 	assert.Equal(t, "foo", *val)
 	assert.Equal(t, nil, err)
 }
