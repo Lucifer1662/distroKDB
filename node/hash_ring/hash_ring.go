@@ -173,8 +173,21 @@ func (ring *Hash_Ring) Add(key string, value string, meta *ValueMeta) error {
 	return ring.add(key, value, new_meta, Hash(key))
 }
 
+func (ring *Hash_Ring) IsPrimaryNodeFor(node_id int, key string) bool {
+	first_primary_node_id := ring.primary_node_index(Hash(key))
+	for i := 0; i < ring.replication_factor; i++ {
+		if first_primary_node_id == node_id {
+			return true
+		}
+
+		first_primary_node_id++
+		first_primary_node_id = ring.wrapped_index(first_primary_node_id)
+	}
+	return false
+}
+
 func (ring *Hash_Ring) resolveConflicts(node_id int, key string, value string, meta *ValueMeta) (string, *ValueMeta) {
-	old_value, current_meta, _ := ring.nodes[node_id].Get(key)
+	old_value, current_meta, _ := ring.nodes[node_id].Get(key, ring.IsPrimaryNodeFor(node_id, key))
 
 	//if !(old -> new)
 	if old_value != nil && IsNotCausal(&current_meta.VectorClock, &meta.VectorClock) {

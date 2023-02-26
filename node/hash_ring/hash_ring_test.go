@@ -97,7 +97,7 @@ func TestDataSpreadsOut(t *testing.T) {
 func ReplicatedNumber(t *testing.T, nodes []Node, key string) int {
 	count := 0
 	for i := range nodes {
-		val, _, err := nodes[i].Get(key)
+		val, _, err := nodes[i].GetEither(key)
 		if err == nil && val != nil {
 			print(i)
 			print(",")
@@ -111,7 +111,7 @@ func ReplicatedNumber(t *testing.T, nodes []Node, key string) int {
 func ReplicatedMatchesIndexes(t *testing.T, nodes []Node, key string) []int {
 	nums := []int{}
 	for i := range nodes {
-		val, _, err := nodes[i].Get(key)
+		val, _, err := nodes[i].GetEither(key)
 		if err == nil && val != nil {
 			nums = append(nums, i)
 		}
@@ -122,7 +122,7 @@ func ReplicatedMatchesIndexes(t *testing.T, nodes []Node, key string) []int {
 func ReplicatedMatchesIds(t *testing.T, nodes []Node, key string) []int {
 	nums := []int{}
 	for i := range nodes {
-		val, _, err := nodes[i].Get(key)
+		val, _, err := nodes[i].GetEither(key)
 		if err == nil && val != nil {
 			nums = append(nums, int(nodes[i].physical_id))
 		}
@@ -511,7 +511,7 @@ func TestRetrievePartialSuccessfullyRecovery(t *testing.T) {
 	assert.Equal(t, []uint64{partition_size * 1, partition_size * 2, partition_size * 3}, resolution.Nodes_positions)
 	assert.Equal(t, []string{"mar", "mar", "mar"}, resolution.Values)
 
-	val, _, err := hr.nodes[3].Get("bar")
+	val, _, err := hr.nodes[3].Get("bar", false)
 	assert.Nil(t, err)
 	var nil_string *string = nil
 	assert.Equal(t, nil_string, val)
@@ -552,7 +552,7 @@ func TestRetrievePartialUnsuccessfullyRecovery(t *testing.T) {
 	assert.Equal(t, []uint64{partition_size * 1, partition_size * 2, partition_size * 4}, resolution.Nodes_positions)
 	assert.Equal(t, []string{"mar", "mar", "mar"}, resolution.Values)
 
-	val, _, err := hr.nodes[3].Get("bar")
+	val, _, err := hr.nodes[3].Get("bar", false)
 	assert.Nil(t, err)
 	assert.Equal(t, "mar", *val)
 }

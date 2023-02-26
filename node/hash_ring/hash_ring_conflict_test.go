@@ -81,7 +81,7 @@ func TestPutConflictSameNode(t *testing.T) {
 	assert.Equal(t, VectorClock{Counts: map[int]int{0: 2}}, get_meta.VectorClock)
 }
 
-func TestPutConflictDifferentNode(t *testing.T) {
+func TestPutConflictDifferentNodeAddOverwrites(t *testing.T) {
 	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
 
 	positions := Generate_Ring_Positions(2)
@@ -113,21 +113,30 @@ func TestPutConflictDifferentNode(t *testing.T) {
 	hr2.nodes[1].table = &permTable2
 	hr2.nodes[1].temporaryTable = &tempTable2
 
-	//   1:1               2:2
+	//   1:1             2:2
 	//get foo -> ""   get foo -> ""
-	//add foo moo     add foo car
-	//    resolution picks alphabetically
+	//add foo moo
+	//               add foo car
+	//                resolves on add, for all nodes
 	//		  get foo -> car
 
 	meta := NewValueMeta(NewVectorClock())
+	resolution.Was_Called = false
 	hr1.Add("foo", "moo", meta)
-	hr2.Add("foo", "car", meta)
+	assert.Equal(t, false, resolution.Was_Called)
 
-	value, get_meta, err := hr1.Get("foo")
+	resolution.Was_Called = false
+	hr2.Add("foo", "car", meta)
 	assert.Equal(t, true, resolution.Was_Called)
+	//should have done a merge here
+
+	resolution.Was_Called = false
+	//check results are correct
+	value, get_meta, err := hr1.Get("foo")
+	assert.Equal(t, false, resolution.Was_Called)
 	assert.Nil(t, err)
 	assert.Equal(t, "car", *value)
-	assert.Equal(t, VectorClock{Counts: map[int]int{0: 2}}, get_meta.VectorClock)
+	assert_equal_vector_clocks(t, VectorClock{Counts: map[int]int{0: 1, 1: 1}}, get_meta.VectorClock)
 
 	resolution.Was_Called = false
 
@@ -136,5 +145,69 @@ func TestPutConflictDifferentNode(t *testing.T) {
 	assert.Equal(t, false, resolution.Was_Called)
 	assert.Nil(t, err)
 	assert.Equal(t, "car", *value)
-	assert.Equal(t, VectorClock{Counts: map[int]int{0: 2}}, get_meta.VectorClock)
+	assert_equal_vector_clocks(t, VectorClock{Counts: map[int]int{0: 1, 1: 1}}, get_meta.VectorClock)
+}
+
+func TestGetConflictDifferentNodeFromPartition(t *testing.T) {
+	resolution := &SavePositionConflictResolution{[]uint64{}, []string{}, false}
+
+	positions := Generate_Ring_Positions(2)
+
+	hr1 := Hash_Ring{Generate_Nodes(2), 2, 2, 2, resolution, 0}
+	hr2 := Hash_Ring{Generate_Nodes(2), 2, 2, 2, resolution, 1}
+
+	//no temporary tables should be used
+	hr1.nodes[0].temporaryTable = &PanicTable{}
+	hr1.nodes[1].temporaryTable = &PanicTable{}
+	hr2.nodes[0].temporaryTable = &PanicTable{}
+	hr2.nodes[1].temporaryTable = &PanicTable{}
+
+	permTable1 := NewInMemoryTable()
+	permTable2 := NewInMemoryTable()
+
+	permProxyTable1 := ProxyTable{hr: &hr1, table: &permTable1, key_position: positions[0], lock: sync.Mutex{}, isPermanent: true}
+	permProxyTable2 := ProxyTable{hr: &hr2, table: &permTable2, key_position: positions[1], lock: sync.Mutex{}, isPermanent: true}
+
+	hr1.nodes[0].table = &permTable1
+	hr1.nodes[1].table = &ErrorTable{}
+	// hr1.nodes[1].table = &permProxyTable2
+	hr2.nodes[0].table = &ErrorTable{}
+	hr2.nodes[1].table = &permTable2
+
+	//   1:1             2:2
+	//get foo -> ""   get foo -> ""
+	//add foo moo
+	//               add foo car
+	//                resolves on add, for all nodes
+	//		  get foo -> car
+
+	meta := NewValueMeta(NewVectorClock())
+	resolution.Was_Called = false
+	hr1.Add("foo", "moo", meta)
+	assert.Equal(t, false, resolution.Was_Called)
+
+	resolution.Was_Called = false
+	hr2.Add("foo", "car", meta)
+	assert.Equal(t, false, resolution.Was_Called)
+
+	//repair network between rings
+	hr1.nodes[1].table = &permProxyTable2
+	hr2.nodes[0].table = &permProxyTable1
+
+	resolution.Was_Called = false
+	//should have done a merge here
+	value, get_meta, err := hr1.Get("foo")
+	assert.Equal(t, true, resolution.Was_Called)
+	assert.Nil(t, err)
+	assert.Equal(t, "car", *value)
+	assert_equal_vector_clocks(t, VectorClock{Counts: map[int]int{0: 2, 1: 1}}, get_meta.VectorClock)
+
+	resolution.Was_Called = false
+
+	//value should have been replicated to hr2
+	value, get_meta, err = hr2.Get("foo")
+	assert.Equal(t, false, resolution.Was_Called)
+	assert.Nil(t, err)
+	assert.Equal(t, "car", *value)
+	assert_equal_vector_clocks(t, VectorClock{Counts: map[int]int{0: 2, 1: 1}}, get_meta.VectorClock)
 }

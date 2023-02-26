@@ -47,10 +47,18 @@ func (n *Node) AddTemporary(key string, value string, meta *ValueMeta) error {
 	return n.temporaryTable.Add(key, value, meta)
 }
 
-func (n *Node) Get(key string) (*string, *ValueMeta, error) {
+func (n *Node) GetEither(key string) (*string, *ValueMeta, error) {
 	val, meta, err := n.GetPermanent(key)
 	if err == nil && val != nil {
 		return val, meta, err
+	} else {
+		return n.GetTemporary(key)
+	}
+}
+
+func (n *Node) Get(key string, usePermanent bool) (*string, *ValueMeta, error) {
+	if usePermanent {
+		return n.GetPermanent(key)
 	} else {
 		return n.GetTemporary(key)
 	}

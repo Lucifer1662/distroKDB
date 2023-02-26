@@ -39,10 +39,10 @@ func MaxInt(x, y int) int {
 func MaxUpVectorClock(clock1 VectorClock, clock2 VectorClock) VectorClock {
 	new_clock := VectorClock{make(map[int]int)}
 	for key := range clock1.Counts {
-		new_clock.Counts[key] = MaxInt(clock1.Get(key), clock1.Get(key))
+		new_clock.Counts[key] = MaxInt(clock1.Get(key), clock2.Get(key))
 	}
 	for key := range clock2.Counts {
-		new_clock.Counts[key] = MaxInt(clock1.Get(key), clock1.Get(key))
+		new_clock.Counts[key] = MaxInt(clock1.Get(key), clock2.Get(key))
 	}
 	return new_clock
 }
@@ -88,7 +88,7 @@ func MaxUpVectorClocks(clocks []VectorClock) VectorClock {
 	return new_clock
 }
 
-func isNotCausal(left *VectorClock, right *VectorClock, keys map[int]int) bool {
+func isNotCausal(left *VectorClock, right *VectorClock, keys map[int]bool) bool {
 	//any l > r
 	for key := range keys {
 		if left.Get(key) > right.Get(key) {
@@ -108,7 +108,15 @@ func isNotCausal(left *VectorClock, right *VectorClock, keys map[int]int) bool {
 
 // !(left -> right)
 func IsNotCausal(left *VectorClock, right *VectorClock) bool {
-	return isNotCausal(left, right, left.Counts) && isNotCausal(left, right, right.Counts)
+	keys := make(map[int]bool)
+	for key := range left.Counts {
+		keys[key] = true
+	}
+	for key := range right.Counts {
+		keys[key] = true
+	}
+
+	return isNotCausal(left, right, keys)
 }
 
 // !(left -> right) or !(right -> left)

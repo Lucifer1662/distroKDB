@@ -145,3 +145,69 @@ func TestFindLatestCasualMultipleVersionConflicting(t *testing.T) {
 	assert.Equal(t, clock_nil, clocks[3])
 	assert.Equal(t, clock_nil, clocks[4])
 }
+
+func TestVectorClockNotCasualTrueDifferentKeys(t *testing.T) {
+	v1 := NewVectorClock() //(0:1, 1:0)
+	v2 := NewVectorClock() //(0:0, 1:1)
+
+	//v1[0] < v2[0] is not true
+	//thus they are not casual
+
+	v1.Add(0)
+	v2.Add(1)
+
+	assert.Equal(t, true, IsNotCausal(&v1, &v2))
+}
+
+func TestVectorClockNotCasualFalseABeforeB(t *testing.T) {
+	v1 := NewVectorClock()
+	v2 := NewVectorClock()
+
+	v1.Add(0)
+
+	v2.Add(0)
+	v2.Add(1)
+
+	assert.Equal(t, false, IsNotCausal(&v1, &v2))
+}
+
+func TestVectorClockNotCasualTrueBBeforeA(t *testing.T) {
+	v1 := NewVectorClock()
+	v2 := NewVectorClock()
+
+	v1.Add(0)
+
+	v2.Add(0)
+	v2.Add(1)
+
+	assert.Equal(t, true, IsNotCausal(&v2, &v1))
+}
+
+func assert_equal_vector_clocks(t *testing.T, c1 VectorClock, c2 VectorClock) {
+	are_equal := c1.Equals(c2)
+	assert.Equal(t, true, are_equal)
+	if !are_equal {
+		assert.Equal(t, c1, c2)
+	}
+
+}
+
+func TestMaxUpVectorClock(t *testing.T) {
+	v1 := NewVectorClock()
+	v2 := NewVectorClock()
+
+	v1.Add(0)
+
+	v2.Add(3)
+	v2.Add(3)
+	v2.Add(3)
+
+	v2.Add(0)
+	v2.Add(1)
+	v2.Add(1)
+
+	newClock := MaxUpVectorClock(v1, v2)
+	assert_equal_vector_clocks(t, VectorClock{Counts: map[int]int{
+		0: 1, 1: 2, 3: 3,
+	}}, newClock)
+}
